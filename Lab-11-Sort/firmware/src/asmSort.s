@@ -76,103 +76,88 @@ asmSwap:
 	/* YOUR asmSwap CODE BELOW THIS LINE! VVVVVVVVVVVVVVVVVVVVV  */
 	PUSH {R4 - R11, LR}
 		/* Init values */
-		MOV 		R4, R0
-		/*R4 baseAddr, R5 V1, R6 V2*/
+		/*change structure a bit*/
+		MOV 	R4, R0		/*base address*/
+		MOV	R5, R1		/* signed flag */
+		MOV 	R6, R2		/*element size */
 
-		/* sign, size */
-		MOV		R7, R1
-		MOV 	R8, R2
-
-		CMP 	R8, 1
+	check_element_size:
+		CMP 	R6, 1
 		BEQ 	load_byte
-		CMP 	R8, 2
+		CMP 	R6, 2
 		BEQ 	load_half
-
-		load_word:
-			LDR		R5, [R4]
-			LDR		R6, [R4, 4]
-			B 	 	sign_ext
-
-		load_byte:
-			LDRB	R5, [R4]
-			LDRB	R6, [R4, 4]
-			B 	 	sign_ext
-
-		load_half:
-			LDRH	R5, [R4]
-			LDRH	R6, [R4, 4]
-			B 	 	sign_ext
-
-		sign_ext:
-			CMP 	R7, 1
-			BNE 	compare_values   /* skip extension */
-
-			/* SIGN EXTEND */
-			CMP 	R8, 1
-			BEQ 	sign_ext_byte
-			CMP 	R8, 2
-			BEQ 	sign_ext_half
-			B   compare_values   /* else skip, size = 4 -> can skip */
-
-		sign_ext_byte:
-			LSL R5, R5, 24
-			ASR R5, R5, 24
-			LSL R6, R6, 24
-			ASR R6, R6, 24
-			B compare_values
-
-		sign_ext_half:
-			LSL R5, R5, 16
-			ASR R5, R5, 16
-			LSL R6, R6, 16
-			ASR R6, R6, 16
-			B compare_values
-
-		/* returns */
-		compare_values:
-			CMP 	R5, 0
-			BEQ 	return_neg1
-			CMP 	R6, 0
-			BEQ 	return_neg1
-
-			CMP R5, R6
-			BGT do_swap
-
-		return_no_swap:
-			MOV R0, 0
-			B end
-
-		do_swap:
-			/* write only elementSize bytes */
-			CMP			R8, 1
-			BEQ			swap_byte
-			CMP			R8, 2
-			BEQ			swap_half
-
-		swap_word:
-			STR			R6, [R4]
-			STR			R5, [R4, 4]
-			MOV			R0, 1
-			B    		end
-
-		swap_byte:
-			STRB		R6, [R4]
-			STRB		R5, [R4, 4]
-			MOV			R0, 1
-			B			end
-
-		swap_half:
-			STRH 		R6, [R4]
-			STRH 		R5, [R4, 4]
-			MOV			R0, 1
-			B			end
-
-		return_neg1:
-			MOV			R0, -1
+		B 	 load_word
 
 
-		end:
+	load_byte:
+		CMP 	R5, 1
+		BEQ 	load_byte_signed
+		LDRB	R1, [R4]
+		LDRB	R2, [R4, 4]
+		B 	 check_zero
+	load_byte_signed:
+		LDRSB 	R1, [R4]
+		LDRSB 	R2, [R4, 4]
+		B 	check_zero
 
+
+	load_half:
+		CMP 	R5, 1
+		BEQ 	load_half_signed
+		LDRH 	R1, [R4]
+		LDRH 	R2, [R4, 4]
+		B 	check_zero
+	load_half_signed:
+		LDRSH 	R1, [R4]
+		LDRSH 	R2, [R4, 4]
+		B 	check_zero
+
+
+	load_word:
+		LDR 	R1, [R4]
+		LDR 	R2, [R4, 4]
+		B 	check_zero
+	check_zero:
+		CMP 	R1, 0
+		BEQ 	return_neg1
+		CMP 	R2, 0
+		BEQ 	return_neg1
+
+		CMP 	R1, R2
+		BLE 	return_no_swap
+
+
+	do_swap:
+		CMP 	R6, 1
+		BEQ 	swap_byte
+		CMP 	R6, 2
+		BEQ 	swap_half
+
+	swap_word:
+		STR 	R2, [R4]
+		STR 	R1, [R4, 4]
+		MOV 	R0, 1
+		B 	end_swap
+
+	swap_byte:
+		STRB 	R2, [R4]
+		STRB 	R1, [R4, 4]
+		MOV 	R0, 1
+		B 	end_swap
+
+	swap_half:
+		STRH 	R2, [R4]
+		STRH 	R1, [R4, 4]
+		MOV 	R0, 1
+		B 	end_swap
+
+	return_no_swap:
+		MOV 	R0, 0
+		B 	end_swap
+
+	return_neg1:
+		MOV 	R0, -1
+	end_swap:
 	POP {R4 - R11, LR}
 	BX LR
 	/* YOUR asmSwap CODE ABOVE THIS LINE! ^^^^^^^^^^^^^^^^^^^^^  */
@@ -211,68 +196,49 @@ asmSort:
 	/* REMEMBER TO FOLLOW THE ARM CALLING CONVENTION! GOT IT!!!*/
 
 	/* YOUR asmSort CODE BELOW THIS LINE! VVVVVVVVVVVVVVVVVVVVV  */
-    PUSH {R4-R11, LR}
+	PUSH {R4-R11, lr}
 
-    /* init */
-    MOV 	R4, R0      /* baseAddr*/
-    MOV 	R5, R1      /* signed flag */
-    MOV 	R6, R2      /* elementSize */
-    MOV 	R7, 0      /* swapCount */
+	/* Init values */
+	MOV R4, R0      /* base address */
+	MOV R5, R1      /* signed */
+	MOV r6, R2      /* elementSize */
+	MOV R7, 0      /* swapCount */
+	MOV R8, 0      /* madeSwap */
+	MOV R9, R4      /* pointer */
 
-	outer_loop:
-		MOV 	R8, 0      /* reset/init madeSwap = 0 */
-		MOV 	R9, R4      /* ptr = startAddr */
+	sort_loop:
+		MOV R0, R9	
+		MOV R1, R5
+		MOV R2, r6
+		BL asmSwap
 
-	inner_loop:
-		CMP		R6, 1
-		BEQ 	sort_load_byte
-		CMP		R6, 2
-		BEQ 	sort_load_half
+		CMP R0, -1	
+		BEQ end_of_arr
 
-	sort_load_word:
-		LDR 	R10, [R9]
-		B     	check_v1
+		CMP R0, 1	
+		BEQ did_swap
+		
+	no_swap: /*asmSort returned 0*/
+		ADD R9, R9, 4
+		B sort_loop
 
-	sort_load_byte:
-		LDRB	R10, [R9]
-		B     	check_v1
+	did_swap:
+		ADD R7, R7, 1
+		MOV R8, 1
+		ADD R9, R9, 4
+		B sort_loop
 
-	sort_load_half:
-		LDRH	R10, [R9]
-
-	check_v1:
-		CMP		R10, 0
-		BEQ 	end_of_pass
-
-		/* asmSwap(pointer, signed, size) */
-		MOV 	R0, R9           /* pointer */
-		MOV 	R1, R5           /* signed flag */
-		MOV 	R2, R6           /* element size */
-		BL    	asmSwap
-
-		/* check return value*/
-		CMP		R0, -1
-		BEQ 	finish           /* sort completed */
-
-		CMP		R0, 0
-		BEQ		increment_pointer      /* no swap */
-
-		/* swap happened */
-		ADD   	R7, R7, 1       /* swapCount++ */
-		MOV 	R8, 1           /* madeSwap = 1 */
-
-	increment_pointer:
-		ADD		R9, R9, 4
-		B		inner_loop
-
-	end_of_pass:
-		CMP		R8, 0
-		BEQ 	finish           /* no swap this pass -> sorted */
-
-		/* else, another pass needed */
-		B     	outer_loop
-
-	finish:
+	end_of_arr:
+		CMP R8, 1
+		BEQ last_pass
+		B   sort_done
+		
+	last_pass: /* made sure the array is fully sorted */
+		MOV R8, 0
+		MOV R9, R4
+		B sort_loop
+		
+	sort_done:
 		MOV 	R0, R7           /* return swapCount */
 
 		POP {R4-R11, LR}
@@ -283,8 +249,3 @@ asmSort:
 
 /**********************************************************************/   
 .end  /* The assembler will not process anything after this directive!!! */
-		   
-
-
-
-
